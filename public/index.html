@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RSCE – Gestión de Consultas</title>
+<style>
+/* ── Variables ──────────────────────────────────────────────────────────── */
+:root {
+  --navy:       #1B3E72;
+  --navy-dark:  #122C55;
+  --navy-light: #2E5090;
+  --accent:     #C8A84B;          /* dorado RSCE */
+  --ink:        #26282B;
+  --ink-soft:   #5A5E66;
+  --ink-faint:  #9AA0AB;
+  --page-bg:    #E8EAF0;
+  --panel:      #FFFFFF;
+  --line:       #C9CDD5;
+  --stripe:     #F0F3FA;
+  --hover-row:  #DCE6F4;
+  --danger:     #A8443D;
+  --danger-bg:  #FBEAE8;
+  --success:    #2E6B3E;
+  --success-bg: #EAF5EE;
+  --tag-dni:    #E8F0FE;
+  --tag-email:  #E6F4EA;
+  --tag-nie:    #FFF3E0;
+  --tag-loe:    #F3E5F5;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--page-bg);
+  color: var(--ink);
+  font-family: "Segoe UI", system-ui, Arial, sans-serif;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Titlebar ───────────────────────────────────────────────────────────── */
+.titlebar {
+  background: var(--navy-dark);
+  color: #fff;
+  padding: 0 16px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.titlebar .logo { font-size: 22px; }
+.titlebar strong { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
+.titlebar .sub { font-size: 11px; color: rgba(255,255,255,.55); margin-left: 4px; }
+.titlebar .spacer { flex: 1; }
+.titlebar .db-badge {
+  font-size: 10.5px; background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+  color: rgba(255,255,255,.8);
+  border-radius: 3px; padding: 2px 8px;
+}
+
+/* ── Menubar (categorías) ───────────────────────────────────────────────── */
+.menubar {
+  background: #F0F2F6;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  padding: 0 8px;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.menu-item {
+  background: none; border: none; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 600;
+  color: var(--ink-soft);
+  padding: 8px 14px;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  transition: color .15s;
+}
+.menu-item:hover { color: var(--navy); background: #E4EAF3; }
+.menu-item.active { color: var(--navy); border-bottom-color: var(--accent); background: #fff; }
+
+/* ── Toolbar (consultas del grupo) ─────────────────────────────────────── */
+.toolbar {
+  background: linear-gradient(to bottom, #E4EEFB, #D5E4F5);
+  border-bottom: 1px solid #B5C9E4;
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.tool-btn {
+  flex-shrink: 0;
+  min-width: 84px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: linear-gradient(to bottom, #F5F9FF, #CCDAF0);
+  border: 1px solid #9CB8DA;
+  border-radius: 5px;
+  padding: 7px 6px 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .12s;
+}
+.tool-btn .ic { font-size: 22px; line-height: 1; }
+.tool-btn .lbl { font-size: 11px; font-weight: 600; color: var(--ink); text-align: center; line-height: 1.2; }
+.tool-btn:hover { background: linear-gradient(to bottom, #fff, #DBE9FF); }
+.tool-btn.active {
+  background: linear-gradient(to bottom, #ADC5E8, #8AAAD6);
+  border-color: var(--navy);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.2);
+}
+.tool-btn.active .lbl { color: var(--navy-dark); }
+
+/* ── Layout principal ───────────────────────────────────────────────────── */
+main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px 12px;
+  gap: 10px;
+}
+
+/* ── Panel de filtros ───────────────────────────────────────────────────── */
+.filter-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 12px 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  flex-shrink: 0;
+}
+.filter-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.filter-panel-head h2 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--navy);
+  font-weight: 700;
+}
+.result-meta { font-size: 11.5px; color: var(--ink-soft); }
+.result-meta strong { color: var(--navy); }
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+}
+.field { display: flex; flex-direction: column; gap: 3px; min-width: 150px; }
+.field label { font-size: 11px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .3px; }
+.field input[type=text],
+.field input[type=number],
+.field input[type=date],
+.field select {
+  padding: 5px 8px;
+  border: 1px solid #A9AFB8;
+  border-radius: 3px;
+  font-family: inherit; font-size: 12.5px;
+  color: var(--ink); background: #fff;
+  height: 30px;
+}
+.field input:focus, .field select:focus {
+  outline: none; border-color: var(--navy);
+  box-shadow: 0 0 0 2px rgba(27,62,114,.15);
+}
+.field.checkbox-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 2px;
+  min-width: auto;
+}
+.field.checkbox-field input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; }
+.field.checkbox-field label { font-size: 12px; font-weight: 500; color: var(--ink); text-transform: none; letter-spacing: 0; cursor: pointer; }
+
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+
+/* Botones */
+.btn {
+  font-family: inherit; font-size: 12.5px; font-weight: 600;
+  border-radius: 4px; padding: 6px 14px; cursor: pointer;
+  background: linear-gradient(to bottom, #F5F9FF, #C9DAF0);
+  border: 1px solid #9CB8DA; color: var(--navy);
+  white-space: nowrap; height: 30px;
+  display: inline-flex; align-items: center; gap: 5px;
+  transition: background .1s;
+}
+.btn:hover { background: linear-gradient(to bottom, #fff, #D8E8FF); }
+.btn:active { background: linear-gradient(to bottom, #ADC5E8, #8AAAD6); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.primary {
+  background: linear-gradient(to bottom, #3A69B5, #1B3E72);
+  color: #fff; border-color: #122C55;
+}
+.btn.primary:hover { background: linear-gradient(to bottom, #4A78C0, #234A85); }
+.btn.primary:active { background: linear-gradient(to bottom, #234A85, #1B3E72); }
+.btn.success {
+  background: linear-gradient(to bottom, #3A8C50, #2E6B3E);
+  color: #fff; border-color: #1D5230;
+}
+.btn.warning {
+  background: linear-gradient(to bottom, #E8A020, #C8830A);
+  color: #fff; border-color: #9A6008;
+}
+.btn.sm { padding: 3px 8px; font-size: 11px; height: 24px; border-radius: 3px; }
+
+/* ── Separador de filtros especiales ───────────────────────────────────── */
+.filter-divider {
+  width: 1px; height: 28px;
+  background: var(--line); margin: 0 2px; align-self: flex-end;
+}
+.filters-label {
+  font-size: 10px; font-weight: 700; color: var(--ink-faint);
+  text-transform: uppercase; letter-spacing: .5px;
+  align-self: flex-end; margin-bottom: 7px;
+}
+
+/* ── Panel de resultados ────────────────────────────────────────────────── */
+.result-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.state-box {
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 13px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+}
+.state-box .state-icon { font-size: 32px; }
+.state-box.error { color: var(--danger); background: var(--danger-bg); }
+.state-box.success { color: var(--success); background: var(--success-bg); }
+
+.spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2.5px solid rgba(27,62,114,.15);
+  border-top-color: var(--navy);
+  animation: spin .7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Tabla ──────────────────────────────────────────────────────────────── */
+.table-container { flex: 1; overflow: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  white-space: nowrap;
+}
+thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--navy);
+  color: #fff;
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+  border-right: 1px solid rgba(255,255,255,.1);
+}
+thead th:hover { background: var(--navy-light); }
+thead th.sort-asc::after { content: ' ▲'; font-size: 9px; }
+thead th.sort-desc::after { content: ' ▼'; font-size: 9px; }
+tbody td {
+  padding: 5px 10px;
+  border-bottom: 1px solid #E4E8EF;
+  color: var(--ink);
+}
+tbody tr:nth-child(even) { background: var(--stripe); }
+tbody tr:hover { background: var(--hover-row); }
+
+/* Tags de identidad */
+.tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: "Consolas", "Courier New", monospace;
+}
+.tag-dni   { background: var(--tag-dni);   color: #1a56cc; border: 1px solid #c2d4f8; }
+.tag-nie   { background: var(--tag-nie);   color: #b35a00; border: 1px solid #f5d4a0; }
+.tag-email { background: var(--tag-email); color: #1d6b35; border: 1px solid #aedcbe; }
+.tag-loe   { background: var(--tag-loe);   color: #7b1fa2; border: 1px solid #ddb8f0; }
+
+/* Botón de navegación en celda */
+.nav-link {
+  background: none; border: none; cursor: pointer;
+  color: var(--navy); text-decoration: underline;
+  font-family: inherit; font-size: 12px; padding: 0;
+}
+.nav-link:hover { color: var(--accent); }
+
+/* Estado activo/baja */
+.badge-activo { color: var(--success); font-weight: 700; }
+.badge-baja   { color: var(--danger);  font-weight: 700; }
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { height: 8px; width: 8px; }
+::-webkit-scrollbar-track { background: #eee; }
+::-webkit-scrollbar-thumb { background: #B0B8C4; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #8A95A3; }
+
+@media (max-width: 760px) {
+  main { padding: 8px; }
+  .filters { gap: 8px 10px; }
+  .field { min-width: 120px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Titlebar -->
+<div class="titlebar">
+  <span class="logo">🐾</span>
+  <strong>RSCE – Gestión</strong>
+  <span class="sub">Real Sociedad Canina de España</span>
+  <div class="spacer"></div>
+  <span class="db-badge" id="dbBadge">GLOBAL_PRODUCCION</span>
+</div>
+
+<!-- Menú de categorías -->
+<div class="menubar" id="menubar"></div>
+
+<!-- Barra de consultas -->
+<div class="toolbar" id="toolbar"></div>
+
+<!-- Área principal -->
+<main>
+  <!-- Panel de filtros -->
+  <div class="filter-panel">
+    <div class="filter-panel-head">
+      <h2 id="queryTitle">Selecciona una consulta del menú</h2>
+      <span class="result-meta" id="resultMeta"></span>
+    </div>
+    <div class="filters" id="filterForm"></div>
+    <div class="actions" id="actionBar">
+      <button class="btn primary" id="btnBuscar" disabled>🔍 Buscar</button>
+      <button class="btn success" id="btnExcel" disabled>📊 Excel</button>
+      <button class="btn warning" id="btnPdf" disabled>📄 PDF</button>
+      <button class="btn" id="btnLimpiar" disabled>✕ Limpiar</button>
+    </div>
+  </div>
+
+  <!-- Panel de resultados -->
+  <div class="result-panel">
+    <div class="state-box" id="resultArea">
+      <span class="state-icon">🐕</span>
+      <span>Elige una categoría en el menú y después una consulta en la barra de iconos.</span>
+    </div>
+  </div>
+</main>
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DEFINICIÓN DE CONSULTAS
+   ══════════════════════════════════════════════════════════════════════════ */
+const QUERY_GROUPS = [
+  {
+    label: 'Personas', items: [
+      {
+        key: 'socios', title: 'Consulta de Socios', icon: '🪪', short: 'Socios',
+        fields: [
+          { name: 'entidad',    label: 'Entidad',            type: 'entidad' },
+          { name: 'nombre',     label: 'Nombre o apellidos', type: 'text', placeholder: 'Buscar…' },
+          { name: 'soloActivos',label: 'Solo activos',       type: 'checkbox' },
+          { name: 'soloEmail',  label: 'Solo con email',     type: 'checkbox', special: true },
+          { name: 'soloEspañoles', label: 'Solo españoles (DNI)', type: 'checkbox', special: true },
+        ],
+        identityCols: ['DNI'], emailCols: ['Email'],
+        navLinks: [
+          { label: 'Ver perros', targetQuery: 'perros_propietario', mapField: (row) => ({ nombre: (row.Apellidos||'') + ' ' + (row.Nombre||'') }) }
+        ]
+      },
+      {
+        key: 'nuevos_propietarios', title: 'Nuevos Propietarios', icon: '🆕', short: 'Nuevos prop.',
+        fields: [
+          { name: 'fechaDesde', label: 'Fecha alta desde', type: 'date' },
+          { name: 'fechaHasta', label: 'Fecha alta hasta', type: 'date' },
+          { name: 'soloSocios', label: 'Solo socios',      type: 'checkbox' },
+          { name: 'soloEmail',  label: 'Solo con email',   type: 'checkbox', special: true },
+          { name: 'soloEspañoles', label: 'Solo españoles (DNI)', type: 'checkbox', special: true },
+        ],
+        identityCols: ['DNI'], emailCols: ['Email'],
+        navLinks: [
+          { label: 'Ver perros', targetQuery: 'perros_propietario', mapField: (row) => ({ nombre: (row.Apellidos||'') + ' ' + (row.Nombre||'') }) }
+        ]
+      },
+    ]
+  },
+  {
+    label: 'Perros', items: [
+      {
+        key: 'perros_propietario', title: 'Perros por Propietario', icon: '🐕', short: 'Por propiet.',
+        fields: [
+          { name: 'personaId', label: 'Código persona', type: 'number', placeholder: 'ID interno' },
+          { name: 'nombre',    label: 'Nombre/apellidos propietario', type: 'text', placeholder: 'Buscar…' },
+          { name: 'loe',       label: 'LOE del perro', type: 'text', placeholder: 'Número LOE', special: true },
+          { name: 'raza',      label: 'Raza',   type: 'raza' },
+          { name: 'soloActuales', label: 'Solo propietarios actuales', type: 'checkbox' },
+          { name: 'soloEmail', label: 'Solo con email', type: 'checkbox', special: true },
+        ],
+        identityCols: [], emailCols: ['Email'], loeCols: ['LOE'],
+        navLinks: [
+          { label: 'Desc. perro', targetQuery: 'perros_progenitores', mapField: (row) => ({ padre: row.LOE }) },
+          { label: 'Camadas', targetQuery: 'camadas_criador', mapField: () => ({}) }
+        ]
+      },
+      {
+        key: 'perros_criador', title: 'Perros por Criador', icon: '🐾', short: 'Por criador',
+        fields: [
+          { name: 'criadorId', label: 'Código criador', type: 'number', placeholder: 'ID interno' },
+          { name: 'loe',       label: 'LOE del perro', type: 'text', placeholder: 'Número LOE', special: true },
+          { name: 'raza',      label: 'Raza', type: 'raza' },
+          { name: 'fechaDesde',label: 'Inscrito desde', type: 'date' },
+          { name: 'fechaHasta',label: 'Inscrito hasta', type: 'date' },
+        ],
+        loeCols: ['LOE'],
+        navLinks: [
+          { label: 'Ver propietario', targetQuery: 'perros_propietario', mapField: (row) => ({ nombre: (row.ApellidosPropietario||'') + ' ' + (row.NombrePropietario||'') }) }
+        ]
+      },
+      {
+        key: 'perros_progenitores', title: 'Perros por Progenitores', icon: '🧬', short: 'Progenitores',
+        fields: [
+          { name: 'padre', label: 'LOE del padre', type: 'text', placeholder: 'Número LOE' },
+          { name: 'madre', label: 'LOE de la madre', type: 'text', placeholder: 'Número LOE' },
+          { name: 'raza',  label: 'Raza', type: 'raza' },
+        ],
+        loeCols: ['LOE', 'LOEPadre', 'LOEMadre'],
+      },
+      {
+        key: 'perros_fechas', title: 'Perros Inscritos entre Fechas', icon: '📅', short: 'Por fechas',
+        fields: [
+          { name: 'fechaDesde', label: 'Inscrito desde', type: 'date' },
+          { name: 'fechaHasta', label: 'Inscrito hasta', type: 'date' },
+          { name: 'raza',    label: 'Raza',    type: 'raza' },
+          { name: 'entidad', label: 'Entidad', type: 'entidad' },
+        ],
+        loeCols: ['LOE'],
+        navLinks: [
+          { label: 'Ver propietario', targetQuery: 'perros_propietario', mapField: (row) => ({ nombre: (row.ApellidosPropietario||'') + ' ' + (row.NombrePropietario||'') }) }
+        ]
+      },
+    ]
+  },
+  {
+    label: 'Criadores / Propietarios', items: [
+      {
+        key: 'criadores_raza', title: 'Criadores de una Raza', icon: '🏅', short: 'Criadores raza',
+        fields: [
+          { name: 'raza',  label: 'Raza',         type: 'raza' },
+          { name: 'afijo', label: 'Código afijo',  type: 'number', placeholder: 'ID afijo' },
+          { name: 'soloEmail', label: 'Solo con email', type: 'checkbox', special: true },
+          { name: 'soloEspañoles', label: 'Solo españoles (DNI)', type: 'checkbox', special: true },
+        ],
+        identityCols: ['DNI'], emailCols: ['Email'],
+        navLinks: [
+          { label: 'Ver perros', targetQuery: 'perros_criador', mapField: (row) => ({ criadorId: row.Codigo }) }
+        ]
+      },
+      {
+        key: 'propietarios_raza', title: 'Propietarios de una Raza', icon: '👤', short: 'Propiet. raza',
+        fields: [
+          { name: 'raza',      label: 'Raza',    type: 'raza' },
+          { name: 'entidad',   label: 'Entidad', type: 'entidad' },
+          { name: 'soloSocios',label: 'Solo socios', type: 'checkbox' },
+          { name: 'soloEmail', label: 'Solo con email', type: 'checkbox', special: true },
+          { name: 'soloEspañoles', label: 'Solo españoles (DNI)', type: 'checkbox', special: true },
+        ],
+        identityCols: ['DNI'], emailCols: ['Email'],
+        navLinks: [
+          { label: 'Ver perros', targetQuery: 'perros_propietario', mapField: (row) => ({ nombre: (row.Apellidos||'') + ' ' + (row.Nombre||'') }) }
+        ]
+      },
+    ]
+  },
+  {
+    label: 'Camadas', items: [
+      {
+        key: 'camadas_criador', title: 'Camadas Inscritas por Criador', icon: '🐶', short: 'Por criador',
+        fields: [
+          { name: 'criadorId',  label: 'Código criador', type: 'number', placeholder: 'ID interno' },
+          { name: 'entidad',    label: 'Entidad', type: 'entidad' },
+          { name: 'fechaDesde', label: 'Inscrita desde', type: 'date' },
+          { name: 'fechaHasta', label: 'Inscrita hasta', type: 'date' },
+        ],
+        navLinks: [
+          { label: 'Ver criador', targetQuery: 'criadores_raza', mapField: () => ({}) }
+        ]
+      },
+      {
+        key: 'camadas_inscritas', title: 'Camadas Inscritas', icon: '📋', short: 'Inscritas',
+        fields: [
+          { name: 'entidad',    label: 'Entidad', type: 'entidad' },
+          { name: 'fechaDesde', label: 'Inscrita desde', type: 'date' },
+          { name: 'fechaHasta', label: 'Inscrita hasta', type: 'date' },
+        ],
+      },
+      {
+        key: 'camadas_notificadas', title: 'Camadas Notificadas', icon: '📨', short: 'Notificadas',
+        fields: [
+          { name: 'entidad',       label: 'Entidad', type: 'entidad' },
+          { name: 'fechaDesde',    label: 'Notificada desde', type: 'date' },
+          { name: 'fechaHasta',    label: 'Notificada hasta', type: 'date' },
+          { name: 'soloPendientes',label: 'Solo pendientes de inscribir', type: 'checkbox' },
+        ],
+      },
+    ]
+  },
+  {
+    label: 'Afijos', items: [
+      {
+        key: 'afijos', title: 'Afijos', icon: '🏷️', short: 'Afijos',
+        fields: [
+          { name: 'nombre',    label: 'Nombre del afijo', type: 'text', placeholder: 'Buscar…' },
+          { name: 'personaId', label: 'Código propietario', type: 'number', placeholder: 'ID persona' },
+          { name: 'raza',      label: 'Raza', type: 'raza' },
+        ],
+        emailCols: ['Email'],
+        navLinks: [
+          { label: 'Ver perros', targetQuery: 'perros_propietario', mapField: (row) => ({ nombre: (row.ApellidosPropietario||'') + ' ' + (row.NombrePropietario||'') }) }
+        ]
+      },
+    ]
+  },
+  {
+    label: 'Pedigríes', items: [
+      {
+        key: 'pedigris_entidad', title: 'Pedigríes por Entidad', icon: '📜', short: 'Por entidad',
+        fields: [
+          { name: 'entidad',    label: 'Entidad', type: 'entidad' },
+          { name: 'fechaDesde', label: 'Emitido desde', type: 'date' },
+          { name: 'fechaHasta', label: 'Emitido hasta', type: 'date' },
+          { name: 'impreso',    label: 'Impreso', type: 'select', options: [
+            { value: '', label: 'Todos' }, { value: '1', label: 'Sí' }, { value: '0', label: 'No' }
+          ]},
+        ],
+        loeCols: ['LOE'],
+        navLinks: [
+          { label: 'Ver propietario', targetQuery: 'perros_propietario', mapField: (row) => ({ nombre: (row.ApellidosPropietario||'') + ' ' + (row.NombrePropietario||'') }) }
+        ]
+      },
+    ]
+  },
+  {
+    label: 'Exposiciones', items: [
+      {
+        key: 'participantes_exposicion', title: 'Participantes en Exposiciones', icon: '🏆', short: 'Participantes',
+        fields: [
+          { name: 'exposicion', label: 'Código exposición', type: 'text', placeholder: 'Cód. expo' },
+          { name: 'entidad',    label: 'Entidad', type: 'entidad' },
+          { name: 'raza',       label: 'Raza', type: 'raza' },
+          { name: 'fechaDesde', label: 'Fecha desde', type: 'date' },
+          { name: 'fechaHasta', label: 'Fecha hasta', type: 'date' },
+          { name: 'soloEmail',  label: 'Solo con email', type: 'checkbox', special: true },
+        ],
+        emailCols: ['Email'], loeCols: ['LOE'],
+        navLinks: [
+          { label: 'Ver perro', targetQuery: 'perros_propietario', mapField: (row) => ({ nombre: (row.ApellidosExpositor||'') + ' ' + (row.NombreExpositor||'') }) }
+        ]
+      },
+    ]
+  },
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ESTADO GLOBAL
+   ══════════════════════════════════════════════════════════════════════════ */
+let RAZAS = [];
+let ENTIDADES = [];
+let currentQuery = null;
+let activeGroupIdx = 0;
+let lastResults = [];   // filas crudas
+let sortCol = null;
+let sortDir = 1; // 1 asc, -1 desc
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HELPERS
+   ══════════════════════════════════════════════════════════════════════════ */
+function esc(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function fmtDate(v) {
+  if (!v) return '';
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) {
+    const d = new Date(v);
+    if (!isNaN(d)) return d.toLocaleDateString('es-ES');
+  }
+  return v;
+}
+
+function fmtVal(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return fmtDate(s);
+  return s;
+}
+
+/* Detectar tipo de documento de identidad */
+function detectIdType(v) {
+  if (!v) return 'other';
+  const s = String(v).trim().toUpperCase();
+  if (/^[0-9]{8}[A-Z]$/.test(s)) return 'dni';
+  if (/^[XYZ][0-9]{7}[A-Z]$/.test(s)) return 'nie';
+  return 'other';
+}
+
+function isSpanish(v) { return detectIdType(v) === 'dni'; }
+function isNIE(v)     { return detectIdType(v) === 'nie'; }
+
+function renderIdTag(v) {
+  if (!v) return '';
+  const t = detectIdType(v);
+  if (t === 'dni') return `<span class="tag tag-dni" title="DNI español">${esc(v)}</span>`;
+  if (t === 'nie') return `<span class="tag tag-nie" title="NIE extranjero">${esc(v)}</span>`;
+  return esc(v);
+}
+
+function renderEmailTag(v) {
+  if (!v) return '';
+  return `<span class="tag tag-email" title="${esc(v)}">${esc(v)}</span>`;
+}
+
+function renderLoeTag(v) {
+  if (!v) return '';
+  return `<span class="tag tag-loe">${esc(v)}</span>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CONSTRUCCIÓN DEL MENÚ Y TOOLBAR
+   ══════════════════════════════════════════════════════════════════════════ */
+function buildMenubar() {
+  const bar = document.getElementById('menubar');
+  bar.innerHTML = '';
+  QUERY_GROUPS.forEach((g, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'menu-item' + (i === activeGroupIdx ? ' active' : '');
+    btn.textContent = g.label;
+    btn.dataset.idx = i;
+    btn.addEventListener('click', () => {
+      activeGroupIdx = i;
+      document.querySelectorAll('.menu-item').forEach(b => b.classList.toggle('active', +b.dataset.idx === i));
+      renderToolbar();
+    });
+    bar.appendChild(btn);
+  });
+}
+
+function renderToolbar() {
+  const bar = document.getElementById('toolbar');
+  bar.innerHTML = '';
+  QUERY_GROUPS[activeGroupIdx].items.forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'tool-btn' + (currentQuery && currentQuery.key === item.key ? ' active' : '');
+    btn.title = item.title;
+    btn.innerHTML = `<span class="ic">${item.icon}</span><span class="lbl">${item.short}</span>`;
+    btn.addEventListener('click', () => selectQuery(item.key));
+    bar.appendChild(btn);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SELECCIÓN DE CONSULTA
+   ══════════════════════════════════════════════════════════════════════════ */
+function findQuery(key) {
+  for (const g of QUERY_GROUPS) {
+    const f = g.items.find(i => i.key === key);
+    if (f) return f;
+  }
+  return null;
+}
+
+function selectQuery(key, prefill) {
+  // Activar la pestaña correcta si la consulta no pertenece al grupo activo
+  const groupIdx = QUERY_GROUPS.findIndex(g => g.items.some(i => i.key === key));
+  if (groupIdx !== -1 && groupIdx !== activeGroupIdx) {
+    activeGroupIdx = groupIdx;
+    document.querySelectorAll('.menu-item').forEach(b => b.classList.toggle('active', +b.dataset.idx === groupIdx));
+    renderToolbar();
+  }
+
+  currentQuery = findQuery(key);
+  if (!currentQuery) return;
+
+  // Marcar el botón activo
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.title === currentQuery.title));
+
+  document.getElementById('queryTitle').textContent = currentQuery.title;
+  document.getElementById('resultMeta').textContent = '';
+
+  // Habilitar botones
+  ['btnBuscar','btnExcel','btnPdf','btnLimpiar'].forEach(id => {
+    document.getElementById(id).disabled = false;
+  });
+
+  renderFilters(currentQuery.fields, prefill || {});
+  setResultArea(`<div class="state-box"><span class="state-icon">${currentQuery.icon}</span><span>Ajusta los filtros si lo necesitas y pulsa «Buscar».</span></div>`);
+  lastResults = [];
+  sortCol = null; sortDir = 1;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RENDERIZAR FILTROS
+   ══════════════════════════════════════════════════════════════════════════ */
+function renderFilters(fields, prefill) {
+  const form = document.getElementById('filterForm');
+  form.innerHTML = '';
+
+  let lastWasSpecial = false;
+  fields.forEach((f, idx) => {
+    // Separador visual antes del primer campo especial
+    if (f.special && !lastWasSpecial && idx > 0) {
+      const div = document.createElement('div');
+      div.className = 'filter-divider';
+      form.appendChild(div);
+      const lbl = document.createElement('span');
+      lbl.className = 'filters-label';
+      lbl.textContent = 'Filtros rápidos';
+      form.appendChild(lbl);
+    }
+    lastWasSpecial = !!f.special;
+
+    const wrap = document.createElement('div');
+
+    if (f.type === 'checkbox') {
+      wrap.className = 'field checkbox-field';
+      const input = document.createElement('input');
+      input.type = 'checkbox'; input.id = 'f_' + f.name; input.name = f.name;
+      if (prefill && prefill[f.name]) input.checked = true;
+      const label = document.createElement('label');
+      label.htmlFor = input.id; label.textContent = f.label;
+      wrap.appendChild(input); wrap.appendChild(label);
+    } else {
+      wrap.className = 'field';
+      const label = document.createElement('label');
+      label.htmlFor = 'f_' + f.name; label.textContent = f.label;
+      wrap.appendChild(label);
+
+      if (f.type === 'raza' || f.type === 'entidad' || f.type === 'select') {
+        const sel = document.createElement('select');
+        sel.id = 'f_' + f.name; sel.name = f.name;
+        const opts = f.type === 'raza'
+          ? [{value:'',label:'Todas las razas'}, ...RAZAS.map(r => ({value:String(r.id),label:r.nombre}))]
+          : f.type === 'entidad'
+          ? [{value:'',label:'Todas las entidades'}, ...ENTIDADES.map(e => ({value:String(e.id),label:e.nombre}))]
+          : f.options;
+        opts.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o.value; opt.textContent = o.label;
+          if (prefill && String(prefill[f.name]) === o.value) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        wrap.appendChild(sel);
+      } else {
+        const input = document.createElement('input');
+        input.type = f.type;
+        input.id = 'f_' + f.name;
+        input.name = f.name;
+        if (f.placeholder) input.placeholder = f.placeholder;
+        if (prefill && prefill[f.name] !== undefined) input.value = prefill[f.name];
+        wrap.appendChild(input);
+      }
+    }
+    form.appendChild(wrap);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RECOGER FILTROS
+   ══════════════════════════════════════════════════════════════════════════ */
+function collectFilters() {
+  const data = {};
+  if (!currentQuery) return data;
+  currentQuery.fields.forEach(f => {
+    const el = document.getElementById('f_' + f.name);
+    if (!el) return;
+    if (f.type === 'checkbox') {
+      if (el.checked) data[f.name] = true;
+    } else if (el.value !== '') {
+      data[f.name] = el.value;
+    }
+  });
+  return data;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BUSCAR
+   ══════════════════════════════════════════════════════════════════════════ */
+async function buscar() {
+  if (!currentQuery) return;
+  const filters = collectFilters();
+
+  // Filtros especiales del lado cliente
+  const filterEmail   = !!filters.soloEmail;
+  const filterEspañol = !!filters.soloEspañoles;
+  const filterLoe     = filters.loe ? String(filters.loe).trim() : '';
+
+  // Quitar campos especiales antes de enviar al server
+  const serverFilters = Object.assign({}, filters);
+  delete serverFilters.soloEmail;
+  delete serverFilters.soloEspañoles;
+  delete serverFilters.loe;
+
+  setResultArea('<div class="state-box"><span class="spinner"></span>&nbsp; Consultando base de datos…</div>');
+  document.getElementById('btnBuscar').disabled = true;
+
+  try {
+    const res = await fetch('/api/query/' + currentQuery.key, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(serverFilters)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al ejecutar la consulta');
+
+    let rows = data.rows;
+
+    // ── Filtro LOE (cliente) ──────────────────────────────────────────────
+    if (filterLoe && currentQuery.loeCols) {
+      rows = rows.filter(row =>
+        currentQuery.loeCols.some(col =>
+          row[col] !== null && row[col] !== undefined && String(row[col]).includes(filterLoe)
+        )
+      );
+    }
+
+    // ── Filtro solo con email (cliente) ───────────────────────────────────
+    if (filterEmail && currentQuery.emailCols) {
+      rows = rows.filter(row =>
+        currentQuery.emailCols.some(col => row[col] && String(row[col]).trim() !== '')
+      );
+    }
+
+    // ── Filtro solo españoles (cliente) ───────────────────────────────────
+    if (filterEspañol && currentQuery.identityCols) {
+      rows = rows.filter(row =>
+        currentQuery.identityCols.some(col => isSpanish(row[col]))
+      );
+    }
+
+    lastResults = rows;
+    sortCol = null; sortDir = 1;
+    renderTable(data.columns);
+
+    const total = data.rows.length;
+    const shown = rows.length;
+    const meta = shown < total
+      ? `Mostrando <strong>${shown}</strong> de <strong>${total}</strong> registros (filtro activo)`
+      : `<strong>${shown}</strong> registro(s) encontrado(s)`;
+    document.getElementById('resultMeta').innerHTML = meta;
+
+  } catch (err) {
+    setResultArea(`<div class="state-box error">❌ No se ha podido completar la consulta:<br><small>${esc(err.message)}</small></div>`);
+  } finally {
+    document.getElementById('btnBuscar').disabled = false;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RENDERIZAR TABLA
+   ══════════════════════════════════════════════════════════════════════════ */
+function renderTable(columns) {
+  if (!currentQuery) return;
+  const rows = getSortedRows();
+
+  if (rows.length === 0) {
+    setResultArea('<div class="state-box">No se han encontrado resultados con estos filtros.</div>');
+    return;
+  }
+
+  // Determinar columnas especiales
+  const idCols    = currentQuery.identityCols || [];
+  const emailCols = currentQuery.emailCols || [];
+  const loeCols   = currentQuery.loeCols || [];
+  const navLinks  = currentQuery.navLinks || [];
+
+  // Columna extra de acciones si hay navLinks
+  const hasNav = navLinks.length > 0;
+
+  // Keys reales de los datos
+  const keys = Object.keys(rows[0]);
+
+  // Cabecera
+  let html = '<div class="table-container"><table><thead><tr>';
+  columns.forEach((c, i) => {
+    const cls = sortCol === i
+      ? (sortDir === 1 ? 'sort-asc' : 'sort-desc')
+      : '';
+    html += `<th class="${cls}" data-colidx="${i}">${esc(c)}</th>`;
+  });
+  if (hasNav) html += '<th style="width:1px">Ir a…</th>';
+  html += '</tr></thead><tbody>';
+
+  rows.forEach(row => {
+    html += '<tr>';
+    keys.forEach((k, ki) => {
+      let v = row[k];
+      const raw = v;
+      v = fmtVal(v);
+
+      // Detectar tipo de celda
+      const colName = columns[ki] || '';
+      let cell = '';
+
+      if (idCols.includes(colName)) {
+        cell = renderIdTag(raw);
+      } else if (emailCols.includes(colName)) {
+        cell = renderEmailTag(raw);
+      } else if (loeCols.includes(colName) && raw) {
+        cell = renderLoeTag(raw);
+      } else if (colName === 'Estado') {
+        if (v === 'Activo') cell = `<span class="badge-activo">✔ Activo</span>`;
+        else if (v === 'Baja') cell = `<span class="badge-baja">✘ Baja</span>`;
+        else cell = esc(v);
+      } else {
+        cell = esc(v);
+      }
+
+      html += `<td>${cell}</td>`;
+    });
+
+    // Acciones de navegación
+    if (hasNav) {
+      const btns = navLinks.map(nl => {
+        const params = JSON.stringify(nl.mapField(row));
+        return `<button class="btn sm nav-link" onclick='navigateTo(${JSON.stringify(nl.targetQuery)}, ${params})'>${esc(nl.label)}</button>`;
+      }).join(' ');
+      html += `<td style="white-space:nowrap;">${btns}</td>`;
+    }
+
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  setResultArea(html);
+
+  // Añadir listeners de ordenación
+  document.querySelectorAll('thead th[data-colidx]').forEach(th => {
+    th.addEventListener('click', () => {
+      const idx = +th.dataset.colidx;
+      if (sortCol === idx) sortDir *= -1;
+      else { sortCol = idx; sortDir = 1; }
+      renderTable(columns);
+    });
+  });
+}
+
+function getSortedRows() {
+  if (sortCol === null) return [...lastResults];
+  return [...lastResults].sort((a, b) => {
+    const keys = Object.keys(a);
+    const k = keys[sortCol];
+    let va = a[k], vb = b[k];
+    if (va === null || va === undefined) va = '';
+    if (vb === null || vb === undefined) vb = '';
+    // Intentar comparación numérica
+    const na = parseFloat(va), nb = parseFloat(vb);
+    if (!isNaN(na) && !isNaN(nb)) return (na - nb) * sortDir;
+    // Fecha
+    const da = new Date(va), db = new Date(vb);
+    if (!isNaN(da) && !isNaN(db)) return (da - db) * sortDir;
+    // Texto
+    return String(va).localeCompare(String(vb), 'es') * sortDir;
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   NAVEGACIÓN CRUZADA
+   ══════════════════════════════════════════════════════════════════════════ */
+function navigateTo(queryKey, prefill) {
+  selectQuery(queryKey, prefill);
+  // Ejecutar la búsqueda automáticamente si hay datos útiles
+  if (prefill && Object.keys(prefill).some(k => prefill[k] !== '' && prefill[k] !== undefined)) {
+    setTimeout(buscar, 100);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EXPORTAR
+   ══════════════════════════════════════════════════════════════════════════ */
+async function exportar(tipo) {
+  if (!currentQuery) return;
+  const btnId = tipo === 'excel' ? 'btnExcel' : 'btnPdf';
+  const btn = document.getElementById(btnId);
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Generando…';
+
+  const filters = collectFilters();
+  delete filters.soloEmail;
+  delete filters.soloEspañoles;
+  delete filters.loe;
+
+  try {
+    const res = await fetch('/api/export/' + tipo + '/' + currentQuery.key, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(filters)
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error||'Error'); }
+    const blob = await res.blob();
+    const ext = tipo === 'excel' ? 'xlsx' : 'pdf';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = currentQuery.key + '_' + Date.now() + '.' + ext;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('No se ha podido exportar: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LIMPIAR FILTROS
+   ══════════════════════════════════════════════════════════════════════════ */
+function limpiar() {
+  if (!currentQuery) return;
+  renderFilters(currentQuery.fields, {});
+  setResultArea(`<div class="state-box"><span class="state-icon">${currentQuery.icon}</span><span>Filtros limpiados. Pulsa «Buscar» para mostrar todos los resultados.</span></div>`);
+  document.getElementById('resultMeta').textContent = '';
+  lastResults = [];
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CARGA DE DATOS AUXILIARES
+   ══════════════════════════════════════════════════════════════════════════ */
+async function loadLookups() {
+  try {
+    const [r, e] = await Promise.all([
+      fetch('/api/razas').then(r => r.json()),
+      fetch('/api/entidades').then(r => r.json()),
+    ]);
+    RAZAS     = Array.isArray(r) ? r : [];
+    ENTIDADES = Array.isArray(e) ? e : [];
+  } catch (err) {
+    console.warn('No se pudieron cargar razas/entidades:', err);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HELPERS DE RENDERIZADO
+   ══════════════════════════════════════════════════════════════════════════ */
+function setResultArea(html) {
+  document.getElementById('resultArea').innerHTML = html;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EVENTOS
+   ══════════════════════════════════════════════════════════════════════════ */
+document.getElementById('btnBuscar').addEventListener('click', buscar);
+document.getElementById('btnExcel').addEventListener('click', () => exportar('excel'));
+document.getElementById('btnPdf').addEventListener('click', () => exportar('pdf'));
+document.getElementById('btnLimpiar').addEventListener('click', limpiar);
+
+// Enter en cualquier input de filtro lanza la búsqueda
+document.getElementById('filterForm').addEventListener('keydown', e => {
+  if (e.key === 'Enter') buscar();
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   INICIO
+   ══════════════════════════════════════════════════════════════════════════ */
+(async () => {
+  await loadLookups();
+  buildMenubar();
+  renderToolbar();
+})();
+</script>
+</body>
+</html>
