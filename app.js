@@ -17,14 +17,27 @@ const dbConfig = {
   server: process.env.DB_SERVER,
   database: process.env.DB_DATABASE,
   options: { encrypt: false, trustServerCertificate: true },
-  pool: { max: 10, min: 0, idleTimeoutMillis: 30000 }
+  pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
+  connectionTimeout: 30000,  // 30 seg para establecer conexión
+  requestTimeout: 60000      // 60 seg para ejecutar consultas
 };
 
 let pool;
 async function getPool() {
-  if (!pool) pool = await sql.connect(dbConfig);
+  if (pool && pool.connected) return pool;
+  pool = null; // limpiar si estaba roto
+  pool = await sql.connect(dbConfig);
+  pool.on('error', err => {
+    console.error('❌ Error en pool SQL:', err.message);
+    pool = null; // forzar reconexión en la próxima consulta
+  });
   return pool;
 }
+
+// ── Verificar conexión al arrancar ──────────────────────────────────────────
+getPool()
+  .then(() => console.log('✅ Conexión a SQL Server establecida correctamente'))
+  .catch(err => console.error('❌ No se pudo conectar a SQL Server:', err.message));
 
 // ── Helper: añade parámetro solo si tiene valor ─────────────────────────────
 function addParam(request, name, type, value) {
